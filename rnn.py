@@ -445,14 +445,16 @@ def make_prediction(input_line):
 
 
 
-
 print(f"Test model ===========================================")
-name = "Sohaib"
-y_logit = make_prediction(name)
-y_prob = torch.softmax(y_logit, dim=1)
-y_pred = y_prob.argmax(dim=1)
-class_name = classes[y_pred.item()]
-print(f"Class of the name `{name}` is: {class_name}")
-print("\n\n")
-
+# test model
+while True:
+  name = input("Enter a name: ")
+  if name == "exit":
+    break
+  y_logit = make_prediction(name)
+  y_prob = torch.softmax(y_logit, dim=1)
+  y_pred = y_prob.argmax(dim=1)
+  class_name = classes[y_pred.item()]
+  print(f"Class of the name `{name}` is: {class_name}")
+  print("\n")
 
