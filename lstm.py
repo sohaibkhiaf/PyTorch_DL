@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 import nltk
+from nltk import sentiment
 from nltk.corpus import stopwords
 from collections import Counter
 import re
@@ -61,6 +62,7 @@ X_train, X_test, y_train, y_test = train_test_split(X,
 print(f'Shape of train data: {X_train.shape}')
 print(f'Shape of test data: {X_test.shape}')
 print("\n\n")
+
 
 
 
@@ -180,6 +182,8 @@ MAX_SEQ_LEN = 12
 
 
 
+
+
 # add padding function #################################
 def add_padding(sentences, seq_len):
 
@@ -206,6 +210,8 @@ def add_padding(sentences, seq_len):
       padded[i, :len(truncated_review)] = truncated_review
 
   return padded, np.array(lengths)
+
+
 
 
 
@@ -238,7 +244,7 @@ print("\n\n")
 
 
 
-print("Create datasets and dataloaders ====================================== ")
+print("Create datasets and data loaders ====================================== ")
 train_data = TensorDataset(torch.from_numpy(X_train_pad),
                            torch.from_numpy(train_lengths),
                            torch.from_numpy(y_train_encoded))
@@ -378,29 +384,9 @@ def accuracy_fn(pred, label):
 
 
 
-# create loss function and optimizer #########################
-def create_loss_and_optimizer(model, lr):
-  # loss and optimization functions
-  torch.manual_seed(RANDOM_SEED)
-  torch.cuda.manual_seed(RANDOM_SEED)
-
-  loss_fn = nn.BCEWithLogitsLoss()
-  optimizer = torch.optim.Adam(model.parameters(),
-                              lr=lr)
-  return loss_fn, optimizer
-
-
-
-
-
-
-
-
 # model evaluation function ################################3
 def eval_model(model: nn.Module,
-               X_batch: torch.Tensor,
-               lengths_batch: torch.Tensor,
-               y_batch: torch.Tensor,
+               test_dataloader: torch.utils.data.DataLoader,
                loss_fn : nn.BCEWithLogitsLoss,
                device = device):
 
@@ -501,9 +487,6 @@ def train_step(model: nn.Module,
 
 
 
-
-
-
 # test step function ############################################
 def test_step(model: nn.Module,
                test_dataloader: torch.utils.data.DataLoader,
@@ -535,7 +518,6 @@ def test_step(model: nn.Module,
       print(f"Test step: acc= {acc_test/ len(y_batch)*100:.2f}% | loss= {loss_test.item():.4f}")
 
   return np.mean(test_loss), test_acc/len(test_dataloader.dataset)
-
 
 
 
@@ -637,12 +619,19 @@ model.to(device)
 
 print(f"Model: \n{model}")
 
-loss_fn, optimizer = create_loss_and_optimizer(model= model, lr=0.001)
+# loss and optimization functions
+torch.manual_seed(RANDOM_SEED)
+torch.cuda.manual_seed(RANDOM_SEED)
+
+loss_fn = nn.BCEWithLogitsLoss()
+optimizer = torch.optim.Adam(model.parameters(),
+                             lr=0.001)
+
 print(f"Loss function: \n{loss_fn}")
 print(f"Optimizer: \n{optimizer}")
 
 print(f"Pre-train evaluation: ")
-eval_model(model, X_batch, lengths_batch, y_batch, loss_fn, device)
+eval_model(model, test_dataloader, loss_fn, device)
 
 # train
 print(f"Training loop: ")
@@ -658,6 +647,11 @@ train_loss_values, test_loss_values, train_acc_values, test_acc_values = train_m
 print("\n\n")
 
 
+
+
+
+
+
 # plot loss and acc ######################################
 plot_loss_and_acc(train_loss_values,
                   test_loss_values,
@@ -665,9 +659,8 @@ plot_loss_and_acc(train_loss_values,
                   test_acc_values,
                   epochs= 5)
 
-
-
-
+print("Post- train evaluation: ")
+eval_model(model, test_dataloader, loss_fn, device)
 
 
 
@@ -699,6 +692,13 @@ def predict_text(text: str, model: torch.nn.Module):
     y_pred= torch.sigmoid(y_logit)
   return y_pred.cpu().detach().numpy()
 
+
+
+
+
+
+
+
 print("Test model ========================================")
 while True:
   print("Write a review: ")
@@ -719,3 +719,33 @@ while True:
 
 print("\n\n")
 
+
+
+
+
+
+
+print("Test model on different dataset =====================================")
+df_old = pd.read_csv("imdb_dataset_2.csv")
+X, y = df_old['review'].values, df_old['sentiment'].values
+
+
+correct = 0
+total = len(y)
+for i in range(len(y)):
+
+    review = X[i]
+    sentiment = y[i]
+    sentiment_code = 1 if sentiment == "positive" else 0
+
+    y_prob = predict_text(review, model)
+    y_pred = torch.round(torch.from_numpy(y_prob))
+
+    if y_pred == sentiment_code:
+        correct += 1
+        print(f"Correct prediction => {correct} / {total}")
+    else:
+        print(f"Incorrect prediction")
+
+print(f"Accuracy: {correct/total*100:.2f}%")
+print("\n\n")
