@@ -268,8 +268,6 @@ class SentimentLSTM(nn.Module):
     # embedding layer
     embedded = self.embedding(x)
 
-    # print(f"embedded.shape= {embedded.shape}:: (X, y) % BATCH_SIZE must be equal to (0, 0)")
-
     # lstm layer
     lstm_output, (hidden, cell) = self.lstm(embedded, (hidden, cell))
 
@@ -289,7 +287,6 @@ class SentimentLSTM(nn.Module):
     cell = torch.zeros(self.num_layers, batch_size, self.hidden_dim).to(device)
 
     return (hidden, cell)
-
 
 
 
@@ -314,17 +311,14 @@ def eval_model(model: nn.Module,
   # eval mode
   model.eval()
 
-  # init hidden and cell state
-  hidden, cell = model.init_hidden(batch_size=BATCH_SIZE)
-
   with torch.inference_mode():
     for X_batch, y_batch in dataloader:
 
+      # init hidden and cell state
+      hidden, cell = model.init_hidden(batch_size=X_batch.size(0))
+
       # move to target device
       X_batch, y_batch = X_batch.to(device), y_batch.to(device)
-
-      hidden = hidden.detach()
-      cell = cell.detach()
 
       # forward pass
       y_logit , (hidden, cell)= model(X_batch, hidden, cell)
@@ -358,15 +352,12 @@ def train_step(model: nn.Module,
   # train mode
   model.train()
 
-  # init hidden
-  hidden, cell = model.init_hidden(batch_size=BATCH_SIZE)
-
   for X_batch , y_batch in train_dataloader:
+    # init hidden and cell state
+    hidden, cell = model.init_hidden(batch_size=X_batch.size(0))
+
     # move to target device
     X_batch, y_batch = X_batch.to(device),  y_batch.to(device)
-
-    hidden = hidden.detach()
-    cell = cell.detach()
 
     y_logit, (hidden, cell) = model(X_batch, hidden, cell)
 
@@ -407,16 +398,13 @@ def val_step(model: nn.Module,
   # eval mode
   model.eval()
 
-  hidden, cell = model.init_hidden(batch_size=BATCH_SIZE)
-
   with torch.inference_mode():
     for X_batch, y_batch in val_dataloader:
+      # init hidden and cell state
+      hidden, cell = model.init_hidden(batch_size=X_batch.size(0))
 
       # move to target device
       X_batch, y_batch = X_batch.to(device), y_batch.to(device)
-
-      hidden = hidden.detach()
-      cell = cell.detach()
 
       # forward pass
       y_logit, (hidden, cell) = model(X_batch, hidden, cell )
@@ -571,8 +559,6 @@ def predict_sentiment(text: str, model: torch.nn.Module):
 
     # add left padding
     padded = add_padding(word_seq, MAX_SEQ_LEN)
-
-    # print(f"sequence representation: \n{torch.from_numpy(padded)}")
 
     # convert to tensor
     padded =  torch.from_numpy(padded)
